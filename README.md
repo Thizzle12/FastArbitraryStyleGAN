@@ -1,1 +1,1 @@
-# FastArbitraryStyleGAN
+# Fast Arbitrary Style GAN
