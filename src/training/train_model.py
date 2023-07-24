@@ -4,6 +4,8 @@ from pathlib import Path
 import torch
 import yaml
 
+from src.model.losses import StyleLoss, ContentLoss
+
 
 def train():
     n_epochs = 30
@@ -15,6 +17,9 @@ def train():
         config = yaml.safe_load(stream)
 
     print(config)
+
+    style_loss = StyleLoss()
+    content_loss = ContentLoss()
 
     # for epoch in range(n_epochs):
     #     for batch_idx, data in enumerate(data):

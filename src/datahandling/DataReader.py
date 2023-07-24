@@ -6,11 +6,13 @@ class Datareader(Dataset):
     def __init__(
         self,
         files_path: str,
+        style_path: str,
         preprocess: T.Compose = None,
     ):
         super().__init__()
 
         self.files = []
+        self.style_files = []
 
     def __len__(self) -> int:
         return len(self.files)
