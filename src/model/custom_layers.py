@@ -13,12 +13,12 @@ class AdaIN(nn.Module):
         self.epsilon = epsilon
 
     def forward(self, content: torch.Tensor, style: torch.Tensor):
-        x = content  # Content
-        y = style  # Style
+        var_content, mean_content = torch.var_mean(content, dim=(2, 3), keepdim=True)
+        var_style, mean_style = torch.var_mean(style, dim=(2, 3), keepdim=True)
 
-        std_x = torch.sqrt(var_x + self.epsilon)
-        std_y = torch.sqrt(var_y + self.epsilon)
-        output = std_y * (x - mean_x) / (std_x) + mean_y
+        std_content = torch.sqrt(var_content + self.epsilon)
+        std_style = torch.sqrt(var_style + self.epsilon)
+        output = std_style * (content - mean_content) / (std_content) + mean_style
 
         return output
 
