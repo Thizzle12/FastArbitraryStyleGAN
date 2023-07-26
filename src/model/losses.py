@@ -9,7 +9,7 @@ class StyleLoss(nn.Module):
         super().__init__(*args, **kwargs)
         self.epsilon = epsilon
 
-    def forward(self, y_true, y_pred):
+    def forward(self, y_true: torch.Tensor, y_pred: torch.Tensor):
         n_features = len(y_true)
 
         loss = []
