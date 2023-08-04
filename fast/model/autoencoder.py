@@ -12,7 +12,7 @@ from torchvision.models import (
 )
 from torchvision.models._utils import IntermediateLayerGetter
 
-from src.model.custom_layers import Upscale
+from fast.model.custom_layers import Upscale
 
 
 class StyleNetwork(Enum):
@@ -25,7 +25,6 @@ class ResNet:
     def __init__(
         self,
         model_type: StyleNetwork = StyleNetwork.RESNET18,
-        use_gpu: bool = torch.cuda.is_available(),
     ) -> None:
         """_summary_
 
@@ -40,23 +39,20 @@ class ResNet:
             "layer4": "layer4",
         }
 
-        self.device = torch.device("cuda:0" if use_gpu else "cpu")
-
         if model_type == StyleNetwork.RESNET18:
             self._resnet18()
         else:
             self._resnet50()
 
     def _resnet18(self):
-        self.architecture = resnet18(weights=ResNet18_Weights.DEFAULT).to(self.device)
+        self.architecture = resnet18(weights=ResNet18_Weights.DEFAULT)
 
     def _resnet50(self):
-        self.architecture = resnet50(weights=ResNet50_Weights.DEFAULT).to(self.device)
+        self.architecture = resnet50(weights=ResNet50_Weights.DEFAULT)
 
 
 def build_encoder(
     model_type: StyleNetwork = StyleNetwork.RESNET18,
-    use_gpu: bool = torch.cuda.is_available(),
 ):
     """_summary_
 
@@ -67,7 +63,7 @@ def build_encoder(
         _type_: _description_
     """
 
-    model = ResNet(model_type=model_type, use_gpu=use_gpu)
+    model = ResNet(model_type=model_type)
     backbone, return_layers = model.architecture, model.return_layers
 
     encoder = IntermediateLayerGetter(backbone, return_layers=return_layers)
@@ -84,17 +80,19 @@ class Decoder(nn.Module):
         self,
         in_channels,
         scale_factor: int = 2,
-        n_layers: int = 4,
+        n_layers: int = 5,
         *args,
         **kwargs,
     ) -> None:
         super().__init__(*args, **kwargs)
         self.n_layers = n_layers
 
-        self.up_layers = [
+        up_layers = [
             Upscale(in_channels=in_channels // 2**i, scale_factor=scale_factor)
             for i in range(n_layers)
         ]
+
+        self.upscaling_layers = nn.ModuleList(up_layers)
 
         self.out = nn.Conv2d(
             in_channels=in_channels // 2 ** (n_layers),
@@ -107,7 +105,7 @@ class Decoder(nn.Module):
     def forward(self, input):
         x = input
         for i in range(self.n_layers):
-            x = self.up_layers[i](x)
+            x = self.upscaling_layers[i](x)
 
         x = self.out(x)
 

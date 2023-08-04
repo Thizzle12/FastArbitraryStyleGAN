@@ -5,6 +5,7 @@ from PIL import Image
 
 from torch.utils.data import Dataset
 from torchvision import transforms as T
+import torchvision.transforms.functional as F
 
 
 class Datareader(Dataset):
@@ -25,10 +26,12 @@ class Datareader(Dataset):
         # [print(file) for file in self.files]
         # [print(file) for file in self.style_files]
 
+        # TODO - Remember a normalization method of the input images.
         self.transform = T.Compose(
             [
                 T.Resize(image_size),
                 T.ToTensor(),
+                T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
             ],
         )
 
@@ -41,7 +44,6 @@ class Datareader(Dataset):
 
         # Read content image.
         content_img_path = os.path.join(self.files_path, self.files[index])
-        print(content_img_path)
         content_image = Image.open(content_img_path)
         content_image = content_image.convert("RGB")
         content_image = self.transform(content_image)
@@ -49,7 +51,6 @@ class Datareader(Dataset):
         # Random style image, as there are fewer style images than content images.
         stlye_idx = random.randint(0, len(self.style_files) - 1)
         style_img_path = os.path.join(self.style_path, self.style_files[stlye_idx])
-        print(style_img_path)
         style_image = Image.open(style_img_path)
         style_image = style_image.convert("RGB")
         style_image = self.transform(style_image)

@@ -1,7 +1,8 @@
+import numpy as np
 import torch
 import torch.nn as nn
 
-from src.model.custom_layers import AdaIN
+from fast.model.custom_layers import AdaIN
 
 
 class StyleLoss(nn.Module):
@@ -10,15 +11,13 @@ class StyleLoss(nn.Module):
         self.epsilon = epsilon
 
     def forward(self, y_true: torch.Tensor, y_pred: torch.Tensor):
-        n_features = len(y_true)
-
         loss = []
 
-        for i in range(n_features):
-            mean_true, var_true = 0, 0
+        for key, value in y_true.items():
+            var_true, mean_true = torch.var_mean(y_true[key], dim=(2, 3), keepdim=True)
             std_true = torch.sqrt(var_true + self.epsilon)
 
-            mean_pred, var_pred = 0, 0
+            var_pred, mean_pred = torch.var_mean(y_pred[key], dim=(2, 3), keepdim=True)
             std_pred = torch.sqrt(var_pred + self.epsilon)
 
             mean_loss = torch.sum(torch.square(mean_true - mean_pred))
@@ -26,16 +25,19 @@ class StyleLoss(nn.Module):
 
             loss.append(mean_loss + std_loss)
 
-        return torch.mean(loss)
+        return torch.mean(torch.stack(loss))
 
 
 class ContentLoss(nn.Module):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.adain = AdaIN()
 
-    def forward(self, output_features):
-        adain_output = self.adain(output_features)
+    def forward(self, output_features, adain_output):
+        """_summary_
 
-        torch.sum((output_features[-1] - adain_output) ** 2)
-        pass
+        Args:
+            output_features (_type_): _description_
+            adain_output (_type_): _description_
+        """
+
+        return torch.sum((output_features[-1] - adain_output) ** 2)
