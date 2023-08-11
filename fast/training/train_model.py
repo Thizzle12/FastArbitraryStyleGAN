@@ -4,9 +4,10 @@ from pathlib import Path
 import torch
 import yaml
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
-from fast.datahandling.DataReader import Datareader
-from fast.model.autoencoder import Decoder, build_encoder
+from fast.datahandling.DataReader import DataReader
+from fast.model.autoencoder import Decoder, build_encoder, Decoder2
 from fast.model.custom_layers import AdaIN
 from fast.model.losses import ContentLoss, StyleLoss
 
@@ -36,6 +37,7 @@ def train():
     backbone = config["backbone"]
     file_path = config["file_path"]
     style_path = config["style_path"]
+    style_weight = config["style_weight"]
 
     [print(f"{key}: {value}") for key, value in config.items()]
 
@@ -49,13 +51,19 @@ def train():
     print(f"Device: {device}")
 
     # Data
-    dataset = Datareader(
-        # files_path=r"D:\Monet\gan-getting-started\photo_jpg",
+    dataset = DataReader(
+        # files_path=r"D:\31296_39911_bundle_archive\flickr30k_images\flickr30k_images",
         files_path=r"C:\Users\Theis\Pictures\Camera Roll\Ny mappe",
         style_path=r"C:\Users\Theis\Pictures\art",
         image_size=(256, 256),
     )
-    train_data = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=3)
+
+    train_loader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=3,
+    )
 
     # Losses
     style_loss_fn = StyleLoss()
@@ -63,9 +71,13 @@ def train():
 
     # Models.
     encoder = build_encoder()
-    decoder = Decoder(
-        in_channels=512,
-    )
+    # decoder = Decoder(
+    #     in_channels=512,
+    # )
+    # decoder = Decoder(
+    #     in_channels=256,
+    # )
+    decoder = Decoder2(in_channels=256)
 
     encoder.to(device)
     decoder.to(device)
@@ -88,43 +100,57 @@ def train():
 
     devider(title="Training")
 
-    for epoch in range(epochs):
-        print(epoch)
+    for epoch in range(1, epochs):
+        print(f"Epoch: #{epoch}")
 
         running_loss = 0
         last_loss = 0.0
 
-        for batch_idx, (content_image, style_image) in enumerate(train_data):
-            content_image = content_image.to(device)
-            style_image = style_image.to(device)
+        with tqdm(train_loader, unit="Batch") as tepoch:
+            for batch_idx, (content_image, style_image) in enumerate(tepoch):
+                tepoch.set_description(f"Batch: #{batch_idx}")
 
-            style = encoder(style_image)
-            content = encoder(content_image)
+                content_image = content_image.to(device)
+                style_image = style_image.to(device)
 
-            t = ada_in(content["layer4"], style["layer4"])
+                style = encoder(style_image)
+                content = encoder(content_image)
 
-            generated_image = decoder(t)
+                t = ada_in(content["layer3"], style["layer3"])
 
-            generated_style = encoder(generated_image)
+                generated_image = decoder(t)
 
-            style_loss = style_loss_fn(style, generated_style)
+                generated_style = encoder(generated_image)
 
-            content_loss = content_loss_fn(generated_style["layer4"], t)
+                style_loss = style_weight * style_loss_fn(style, generated_style)
 
-            loss = style_loss + content_loss
+                content_loss = content_loss_fn(generated_style["layer3"], t)
 
-            running_loss += loss.item()
-            print(loss.item())
+                loss = style_loss + content_loss
 
-            loss.backward()
-            optimizer.step()
+                # print("")
+                # print(f"Style loss: {style_loss}, Content_loss: {content_loss}")
 
-            if batch_idx % 1000 == 999:
-                last_loss = running_loss / 1000  # loss per batch
-                print("  batch {} loss: {}".format(batch_idx + 1, last_loss))
-                running_loss = 0.0
+                running_loss += loss.item()
 
-        print(last_loss)
+                # Backward pass.
+                optimizer.zero_grad()
+                loss.backward()
+                # Update weights.
+                optimizer.step()
+
+                # if batch_idx % 1000 == 999:
+                #     last_loss = running_loss / 1000  # loss per batch
+                #     print("  batch {} loss: {}".format(batch_idx + 1, last_loss))
+                #     running_loss = 0.0
+
+                tepoch.set_postfix(loss=loss.item())
+
+        # Save model.
+        torch.save(
+            decoder.state_dict(),
+            os.path.join(Path.cwd(), f"fast/model_dicts/decoder_{epoch}.pt"),
+        )
 
 
 if __name__ == "__main__":

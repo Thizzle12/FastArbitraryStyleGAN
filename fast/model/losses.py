@@ -40,4 +40,6 @@ class ContentLoss(nn.Module):
             adain_output (_type_): _description_
         """
 
-        return torch.sum((output_features[-1] - adain_output) ** 2)
+        # print(f"output features: {adain_output.shape}")
+
+        return torch.sum((output_features - adain_output) ** 2)

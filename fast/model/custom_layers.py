@@ -48,6 +48,8 @@ class Upscale(nn.Module):
             padding="same",
         )
 
+        # self.bn = nn.BatchNorm2d(in_channels // 2 * scale_factor**2)
+
         # in_channels * 4, H, W -> in_channels, H * 2, W * 2
         self.pixel_shuffle = nn.PixelShuffle(scale_factor)
         self.activation = nn.PReLU(in_channels // 2)
@@ -55,6 +57,42 @@ class Upscale(nn.Module):
     def forward(self, input):
         x = self.conv(input)
         x = self.conv2(x)
+        # x = self.bn(x)
         x = self.pixel_shuffle(x)
         x = self.activation(x)
+        return x
+
+
+class CustomConv2D(nn.Module):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        use_relu: bool = True,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.use_relu = use_relu
+
+        self.padding = nn.ReflectionPad2d(1)
+
+        self.conv = nn.Conv2d(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            kernel_size=3,
+            padding="valid",
+            stride=1,
+        )
+
+        self.act = nn.PReLU(out_channels)
+
+    def forward(self, inputs):
+        # Pad
+        x = self.padding(inputs)
+        x = self.conv(x)
+
+        if self.use_relu:
+            x = self.act(x)
+
         return x
